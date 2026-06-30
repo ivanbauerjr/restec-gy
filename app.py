@@ -6,7 +6,14 @@ import os
 
 app = FastAPI(title="SEIA-PR | Dashboard de Licitações de TI")
 
-CSV_FILE = "licitacoes_tecnologia_pr.csv"
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, "licitacoes_tecnologia_pr.csv")
+
+# Adicionar o diretório base ao sys.path para garantir importações relativas robustas no Render
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
 
 # Garantir que a base de dados existe
 if not os.path.exists(CSV_FILE):
@@ -14,7 +21,59 @@ if not os.path.exists(CSV_FILE):
         from gerar_dados import gerar_dados_licitacoes
         gerar_dados_licitacoes(250)
     except Exception as e:
-        print(f"Erro ao gerar dados sintéticos: {e}")
+        print(f"Aviso: Erro ao importar gerar_dados. Gerando dados simplificados em app.py... Detalhe: {e}")
+        # Gerador de fallback simplificado integrado para máxima segurança no Render
+        import random
+        from datetime import datetime, timedelta
+        
+        orgaos = ["SEIA", "Celepar", "SESA", "SEAP", "CGE", "DETRAN", "SEED", "SETI"]
+        objetos = ["Licenciamento de IA para análise documental - Fase 1", "Contratação de Nuvem Híbrida - Fase 2", "Serviços de Chatbot E-Gov - Fase 3", "Consultoria LGPD - Fase 1"]
+        modalidades = ["Pregão Eletrônico", "Inexigibilidade de Licitação", "Dispensa de Licitação", "Diálogo Competitivo", "Concorrência Pública"]
+        situacoes = ["Homologado", "Homologado", "Deserto", "Fracassado", "Revogado", "Em Andamento"]
+        empresas = [("TechPar Soluções Ltda", "12.345.678/0001-90"), ("Inova Sul S.A.", "98.765.432/0001-10"), ("Inteligência Global ME", "45.678.901/0001-23")]
+        
+        dados = []
+        data_inicio = datetime(2021, 1, 1)
+        for i in range(250):
+            ano_processo = random.randint(21, 26)
+            num_seq = random.randint(100000, 999999)
+            numero_processo = f"{ano_processo}.{num_seq}-{random.randint(0, 9)}"
+            orgao = random.choice(orgaos)
+            objeto = random.choice(objetos)
+            modalidade = random.choice(modalidades)
+            valor_max = round(random.uniform(50000, 3000000), 2)
+            situacao = random.choice(situacoes)
+            
+            if situacao == "Homologado":
+                valor_hom = round(valor_max * random.uniform(0.75, 0.95), 2)
+                empresa, cnpj = random.choice(empresas)
+            elif situacao == "Em Andamento":
+                valor_hom = None
+                empresa, cnpj = "N/A", "N/A"
+            else:
+                valor_hom = 0.0
+                empresa, cnpj = "N/A", "N/A"
+                
+            data_evento = data_inicio + timedelta(days=random.randint(0, 1900))
+            if data_evento > datetime.now():
+                data_evento = datetime.now() - timedelta(days=random.randint(1, 30))
+                
+            dados.append({
+                "Numero_Processo": numero_processo,
+                "Orgao_Demandante": orgao,
+                "Objeto": objeto,
+                "Modalidade": modalidade,
+                "Valor_Maximo_Estimado": valor_max,
+                "Valor_Homologado": valor_hom,
+                "Situacao": situacao,
+                "Razao_Social_Vencedora": empresa,
+                "CNPJ_Vencedor": cnpj,
+                "Data_Evento": data_evento.strftime("%Y-%m-%d")
+            })
+        
+        df_fb = pd.DataFrame(dados)
+        df_fb.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+        print("Dataset de fallback gerado com sucesso.")
 
 def load_data():
     if os.path.exists(CSV_FILE):
@@ -953,8 +1012,10 @@ def get_dashboard():
         // Buscar dados filtrados da API e redesenhar a tela
         async function updateDashboard() {
             // Coletar anos
-            const anoMin = document.getElementById('select-ano-min').value;
-            const anoMax = document.getElementById('select-ano-max').value;
+            const selectMin = document.getElementById('select-ano-min');
+            const selectMax = document.getElementById('select-ano-max');
+            const anoMin = selectMin ? selectMin.value : null;
+            const anoMax = selectMax ? selectMax.value : null;
 
             // Coletar Órgãos
             const orgaosChecked = Array.from(document.querySelectorAll('input[name="orgao"]:checked')).map(cb => cb.value);
@@ -963,11 +1024,15 @@ def get_dashboard():
             // Coletar Situações
             const situacoesChecked = Array.from(document.querySelectorAll('input[name="situacao"]:checked')).map(cb => cb.value);
 
-            // Construir query string
-            let query = `?ano_min=${anoMin}&ano_max=${anoMax}`;
-            if(orgaosChecked.length > 0) query += `&orgaos=${encodeURIComponent(orgaosChecked.join(','))}`;
-            if(modalidadesChecked.length > 0) query += `&modalidades=${encodeURIComponent(modalidadesChecked.join(','))}`;
-            if(situacoesChecked.length > 0) query += `&situacoes=${encodeURIComponent(situacoesChecked.join(','))}`;
+            // Construir query string de forma segura
+            let params = [];
+            if(anoMin && !isNaN(anoMin)) params.push(`ano_min=${anoMin}`);
+            if(anoMax && !isNaN(anoMax)) params.push(`ano_max=${anoMax}`);
+            if(orgaosChecked.length > 0) params.push(`orgaos=${encodeURIComponent(orgaosChecked.join(','))}`);
+            if(modalidadesChecked.length > 0) params.push(`modalidades=${encodeURIComponent(modalidadesChecked.join(','))}`);
+            if(situacoesChecked.length > 0) params.push(`situacoes=${encodeURIComponent(situacoesChecked.join(','))}`);
+
+            let query = params.length > 0 ? `?${params.join('&')}` : '';
 
             try {
                 const response = await fetch(`/api/data${query}`);
