@@ -1,0 +1,38 @@
+1. Contextualização da Área de Atuação e Conexão com a Base
+Atuo na parte jurídica da Secretaria de Inovação e Inteligência Artificial (SEIA) do Governo do Estado do Paraná, lotada na
+Diretoria de Inteligência Artificial. Minhas atividades envolvem a análise e elaboração de documentos legais e
+administrativos, como Documentos de Oficialização de Demanda (DFD), Estudos Técnicos Preliminares (ETP) e Termos
+de Referência (TR), voltados para a contratação e implementação de soluções de inteligência artificial, automação e
+infraestrutura em nuvem, especialmente ligadas ao programa "TRANSFORMA PARANÁ". Diante desse cenário, a base de
+dados escolhida visa mapear e analisar o ecossistema de compras públicas de base tecnológica no Estado, apoiando o
+setor jurídico na escolha fundamentada das melhores modalidades de contratação.
+2. Identificação da Base Pública e Finalidade Geral
+A base selecionada é a Base de Licitações e Contratos do Estado do Paraná. O órgão responsável pela gestão e
+integridade dos dados é a Controladoria Geral do Estado do Paraná (CGE-PR) em conjunto com a Secretaria de Estado da
+Administração e da Previdência (SEAP). O acesso pode ser realizado por meio do Portal de Dados Abertos do Paraná
+(http://www.dadosabertos.pr.gov.br/) e do Portal da Transparência estadual. A finalidade geral dessa base é garantir o
+princípio constitucional da publicidade aos atos de compras, licitações e contratos do Governo Estadual.
+3. Formato, Abrangência, Período e Atualização
+Os dados são disponibilizados preferencialmente em arquivos abertos no formato CSV (valores separados por vírgula),
+permitindo fácil importação para softwares de análise de dados, além de integração via API. A abrangência territorial é o
+Estado do Paraná (esfera estadual). O período coberto engloba o histórico de licitações da última década, com uma
+periodicidade de atualização diária, refletindo os trâmites do Sistema de Gestão de Materiais e Serviços (GMS).
+4. Unidade de Análise e Principais Atributos
+A unidade de análise central da base é o processo licitatório (abrangendo desde o edital até o contrato firmado). Os
+principais campos e variáveis disponíveis incluem:
+• Número do processo
+• Órgão demandante (ex: SEIA, Celepar, SESA)
+• Objeto da licitação (descrição do item)
+• Modalidade licitatória (ex: Pregão, Concurso)
+• Valor máximo estimado
+• Valor final homologado
+• Situação atual do certame
+• CNPJ/Razão Social da empresa vencedora
+5. Indicação Preliminar de Publicidade, Sigilo e Proteção de Dados (LGPD)
+A regra geral da base é a transparência ativa: valores, objetos contratados e dados corporativos das empresas (CNPJ,
+Razão Social) são estritamente públicos. No entanto, informações sujeitas a restrição, sigilo ou proteção de dados
+englobam: dados pessoais sensíveis de representantes legais (como CPF e endereços residenciais de
+Microempreendedores Individuais - MEIs); e eventuais anexos técnicos que contenham segredo industrial, metodologias
+proprietárias de algoritmos (quando se trata de IA) ou detalhes de arquitetura de rede que, se expostos, possam
+comprometer a segurança da informação do Governo do Estado. Esses itens protegidos requerem tratamento anonimizado
+ou sigilo conforme a Lei Geral de Proteção de Dados Pessoais (LGPD) e a Lei de Acesso à Informação

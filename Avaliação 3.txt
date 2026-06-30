@@ -1,0 +1,56 @@
+1. Identificação Resumida da Base
+A base em análise é a de "Licitações e Contratos do Estado do Paraná", extraída do Sistema de Gestão de
+Materiais e Serviços (GMS) e disponibilizada via Portal de Dados Abertos do PR
+(http://www.dadosabertos.pr.gov.br/).
+2. Análise da Qualidade da Base
+A base apresenta alto grau de confiabilidade por refletir os dados transacionais oficiais do Governo. Possui
+excelente frequência de atualização (diária) e completude em campos essenciais (valores, modalidades,
+vencedores). A facilidade de download em CSV permite ampla manipulação. Além disso, a granularidade dos
+dados possibilita análises micro (por item) e macro (comparação temporal anual).
+3. Principais Limites
+O limite mais sensível para a área de Inteligência Artificial é a falta de padronização na descrição textual da
+coluna "Objeto". Soluções inovadoras muitas vezes são categorizadas genericamente (ex: "Serviços de TI"), o
+que exige mineração de texto para identificar o que é tecnologia de ponta. Além disso, a base isolada não traz
+o contexto jurídico (como os Estudos Técnicos Preliminares), sendo necessário o cruzamento com o
+repositório de editais.
+4. Avaliação de Riscos (LGPD)
+O risco primário reside na eventual exposição de dados pessoais atrelados a Microempreendedores
+Individuais (MEIs), onde o CNPJ pode revelar o nome civil e endereço residencial do fornecedor. Outro ponto
+de atenção é o uso inadequado de informações que possam comprometer o sigilo de estratégias de segurança
+da informação do Estado ou expor segredos industriais (códigos-fonte e arquitetura de IA) de empresas
+participantes.
+5. Apoio à Decisão Pública (O Projeto E-Gov)
+Na Diretoria de IA da SEIA, a principal dor jurídica é definir a modelagem de contratação adequada para
+inovações. Essa base apoiará a decisão pública de duas formas complementares: servirá de insumo para
+alimentar um Agente de Inteligência Artificial (Assistente Jurídico) capaz de recomendar a melhor
+modalidade (ex: Marco Legal das Startups vs. Nova Lei de Licitações) para casos concretos baseado no
+histórico; e alimentará um Dashboard Estratégico para monitoramento visual do mercado fornecedor.
+6. Indicadores para o Painel (Dashboard)
+Indicador
+O que mede / Campos Utilizados
+Apoio à Decisão
+1. Taxa de Sucesso por
+Modalidade
+2. Volume de Investimento
+em Inovação por Órgão
+Mede o percentual de licitações concluídas
+com êxito versus licitações
+desertas/fracassadas.
+Campos: "Modalidade" e "Situação".
+Mede o montante financeiro destinado a TI
+pelas diferentes secretarias.
+Apoia o setor jurídico a evitar modalidades que
+não atraem o mercado de inovação.
+Apoia a SEIA na identificação de parceiros
+para projetos transversais.
+Campos: "Órgão Demandante", "Objeto" e
+"Valor Homologado".
+3. Concentração de
+Fornecedores de
+Tecnologia
+Mede o grau de dependência do Estado
+em relação a empresas específicas.
+Campos: "Razão Social/CNPJ" e "Valor".
+Apoia a criação de políticas de fomento para
+atrair mais startups locais para as compras
+públicas
