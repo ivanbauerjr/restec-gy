@@ -110,7 +110,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR (FILTROS) ---
-st.sidebar.image("https://www.dadosabertos.pr.gov.br/assets/images/logo-governo.png", width=180, error_bad_lines=False)
+st.sidebar.markdown("""
+<div style="background: linear-gradient(135deg, #0A3A60, #007791); padding: 14px 16px; border-radius: 10px; margin-bottom: 8px;">
+    <div style="color: white; font-weight: 700; font-size: 1rem;">SEIA-PR</div>
+    <div style="color: rgba(255,255,255,0.8); font-size: 0.75rem;">Diretoria de Inteligência Artificial</div>
+</div>
+""", unsafe_allow_html=True)
 st.sidebar.markdown("### 🔍 Filtros Estratégicos")
 st.sidebar.markdown("Refine sua pesquisa de contratações públicas de TI e Inovação:")
 
