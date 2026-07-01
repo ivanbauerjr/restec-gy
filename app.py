@@ -77,7 +77,7 @@ if not os.path.exists(CSV_FILE):
 
 def load_data():
     if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
+        df = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
         df["Data_Evento"] = pd.to_datetime(df["Data_Evento"])
         df["Ano"] = df["Data_Evento"].dt.year
         # Substituir NaNs em todas as colunas para evitar problemas de serialização JSON
@@ -117,9 +117,9 @@ def get_metadata():
 def get_data(
     ano_min: int = Query(None),
     ano_max: int = Query(None),
-    orgaos: str = Query(None), # Comma separated
-    modalidades: str = Query(None), # Comma separated
-    situacoes: str = Query(None) # Comma separated
+    orgaos: str = Query(None),         # Comma separated ASCII strings
+    modalidades_idx: str = Query(None), # Comma separated INTEGER indices (avoids non-ASCII in URL)
+    situacoes: str = Query(None)        # Comma separated ASCII strings
 ):
     df = load_data()
     if df.empty:
@@ -135,9 +135,16 @@ def get_data(
         orgaos_list = orgaos.split(",")
         df = df[df["Orgao_Demandante"].isin(orgaos_list)]
     
-    if modalidades:
-        modalidades_list = modalidades.split(",")
-        df = df[df["Modalidade"].isin(modalidades_list)]
+    # Modalidades usa índices numéricos para evitar problemas de encoding de acentos na URL
+    if modalidades_idx:
+        all_modalidades = sorted(df["Modalidade"].unique().tolist())
+        try:
+            idx_list = [int(i) for i in modalidades_idx.split(",")]
+            selected_modalidades = [all_modalidades[i] for i in idx_list if 0 <= i < len(all_modalidades)]
+            if selected_modalidades:
+                df = df[df["Modalidade"].isin(selected_modalidades)]
+        except (ValueError, IndexError):
+            pass  # Índices inválidos: não filtra
         
     if situacoes:
         situacoes_list = situacoes.split(",")
@@ -935,11 +942,29 @@ def get_dashboard():
     <script>
         let fullDataRecords = []; // Armazenar todos os registros filtrados
 
+        // Mostrar banner de status no topo do main
+        function showStatus(msg, isError) {
+            let bar = document.getElementById('status-bar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'status-bar';
+                bar.style.cssText = 'padding:.75rem 1rem;border-radius:8px;font-size:.9rem;margin-bottom:1rem;';
+                const main = document.querySelector('main');
+                if (main) main.insertBefore(bar, main.firstChild);
+            }
+            bar.style.background = isError ? '#FFEBEE' : '#E8F5E9';
+            bar.style.color = isError ? '#C62828' : '#2E7D32';
+            bar.textContent = msg;
+        }
+
         // Inicializar os filtros
         async function initFilters() {
+            showStatus('⏳ Conectando à API...', false);
             try {
-                const response = await fetch('/api/metadata');
+                const response = await fetch('/api/metadata?t=' + Date.now());
+                if (!response.ok) throw new Error(`Metadata HTTP ${response.status}`);
                 const metadata = await response.json();
+                showStatus(`✅ Metadata carregada: ${metadata.anos.length} anos, ${metadata.orgaos.length} órgãos`, false);
 
                 // 1. Povoar Anos
                 const selectMin = document.getElementById('select-ano-min');
@@ -969,11 +994,11 @@ def get_dashboard():
                     listOrgao.appendChild(createCheckboxItem(org, 'orgao', true));
                 });
 
-                // 3. Povoar Modalidades
+                // 3. Povoar Modalidades (armazena índice numérico para evitar envio de acentos na URL)
                 const listModalidade = document.getElementById('filter-modalidade');
                 listModalidade.innerHTML = '';
-                metadata.modalidades.forEach(mod => {
-                    listModalidade.appendChild(createCheckboxItem(mod, 'modalidade', true));
+                metadata.modalidades.forEach((mod, idx) => {
+                    listModalidade.appendChild(createCheckboxItem(mod, 'modalidade', true, idx));
                 });
 
                 // 4. Povoar Situações (Pre-selecionar menos as indesejadas)
@@ -985,15 +1010,16 @@ def get_dashboard():
                     listSituacao.appendChild(createCheckboxItem(sit, 'situacao', isChecked));
                 });
 
-                // Após carregar os metadados, atualizar o dashboard
-                updateDashboard();
+                // Carregamento inicial: busca TODOS os dados sem nenhum filtro de URL
+                await carregarDadosIniciais();
 
             } catch (error) {
+                showStatus(`❌ Erro (Metadata): ${error.message}`, true);
                 console.error("Erro ao carregar filtros iniciais:", error);
             }
         }
 
-        function createCheckboxItem(value, type, checked) {
+        function createCheckboxItem(value, type, checked, idx) {
             const label = document.createElement('label');
             label.className = 'checkbox-item';
             
@@ -1002,11 +1028,38 @@ def get_dashboard():
             checkbox.value = value;
             checkbox.checked = checked;
             checkbox.name = type;
+            // Armazena o índice numérico para modalidades (evita enviar acentos na URL)
+            if (idx !== undefined) {
+                checkbox.dataset.idx = idx;
+            }
             checkbox.addEventListener('change', updateDashboard);
             
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(value));
             return label;
+        }
+
+        // Carregamento inicial sem nenhum parâmetro de filtro (sempre funciona)
+        async function carregarDadosIniciais() {
+            const dbg = document.getElementById('debug-bar');
+            const url = '/api/data';
+            if(dbg) dbg.textContent = 'Carregando... URL: ' + url;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                fullDataRecords = data.records || [];
+                const s = data.summary || {};
+                if(dbg) dbg.textContent = 'OK | URL: ' + url + ' | summary: ' + JSON.stringify(s) + ' | records: ' + fullDataRecords.length;
+                updateKPIs(s);
+                renderChartModality((data.charts || {}).modality);
+                renderChartOrgao((data.charts || {}).orgao);
+                renderChartEvolution((data.charts || {}).evolution);
+                renderChartVendors((data.charts || {}).vendors);
+                renderTable(fullDataRecords);
+            } catch(e) {
+                if(dbg) dbg.textContent = 'ERRO: ' + e.message;
+                console.error('Erro no carregamento inicial:', e);
+            }
         }
 
         // Buscar dados filtrados da API e redesenhar a tela
@@ -1017,43 +1070,60 @@ def get_dashboard():
             const anoMin = selectMin ? selectMin.value : null;
             const anoMax = selectMax ? selectMax.value : null;
 
-            // Coletar Órgãos
+            // Coletar Órgãos (ASCII puro, pode ir como string)
             const orgaosChecked = Array.from(document.querySelectorAll('input[name="orgao"]:checked')).map(cb => cb.value);
-            // Coletar Modalidades
-            const modalidadesChecked = Array.from(document.querySelectorAll('input[name="modalidade"]:checked')).map(cb => cb.value);
-            // Coletar Situações
+            // Coletar Modalidades por ÍNDICE numérico (evita problema de encoding de acentos na URL)
+            const allModalidadesCheckboxes = Array.from(document.querySelectorAll('input[name="modalidade"]'));
+            const checkedModalidadeIdxs = Array.from(document.querySelectorAll('input[name="modalidade"]:checked'))
+                .map(cb => cb.dataset.idx)
+                .filter(idx => idx !== undefined);
+            // Coletar Situações (ASCII puro, pode ir como string)
             const situacoesChecked = Array.from(document.querySelectorAll('input[name="situacao"]:checked')).map(cb => cb.value);
 
             // Construir query string de forma segura
             let params = [];
             if(anoMin && !isNaN(anoMin)) params.push(`ano_min=${anoMin}`);
             if(anoMax && !isNaN(anoMax)) params.push(`ano_max=${anoMax}`);
-            if(orgaosChecked.length > 0) params.push(`orgaos=${encodeURIComponent(orgaosChecked.join(','))}`);
-            if(modalidadesChecked.length > 0) params.push(`modalidades=${encodeURIComponent(modalidadesChecked.join(','))}`);
-            if(situacoesChecked.length > 0) params.push(`situacoes=${encodeURIComponent(situacoesChecked.join(','))}`);
+            if(orgaosChecked.length > 0) params.push(`orgaos=${orgaosChecked.join(',')}`);
+            // Só envia modalidades_idx se não estiverem todas selecionadas (otimização)
+            if(checkedModalidadeIdxs.length > 0 && checkedModalidadeIdxs.length < allModalidadesCheckboxes.length) {
+                params.push(`modalidades_idx=${checkedModalidadeIdxs.join(',')}`);
+            }
+            if(situacoesChecked.length > 0) params.push(`situacoes=${situacoesChecked.join(',')}`);
 
             let query = params.length > 0 ? `?${params.join('&')}` : '';
+            const url = `/api/data${query}`;
+            const dbg = document.getElementById('debug-bar');
+            if(dbg) dbg.textContent = 'Filtrando... URL: ' + url;
 
             try {
-                const response = await fetch(`/api/data${query}`);
+                const response = await fetch(url);
                 const data = await response.json();
-
                 fullDataRecords = data.records || [];
-
-                // 1. Atualizar KPIs
-                updateKPIs(data.summary);
-
-                // 2. Renderizar Gráficos
-                renderChartModality(data.charts.modality);
-                renderChartOrgao(data.charts.orgao);
-                renderChartEvolution(data.charts.evolution);
-                renderChartVendors(data.charts.vendors);
-
-                // 3. Renderizar Tabela
+                const s = data.summary || {};
+                if(dbg) dbg.textContent = 'OK | URL: ' + url + ' | summary: ' + JSON.stringify(s) + ' | records: ' + fullDataRecords.length;
+                updateKPIs(s);
+                renderChartModality((data.charts || {}).modality);
+                renderChartOrgao((data.charts || {}).orgao);
+                renderChartEvolution((data.charts || {}).evolution);
+                renderChartVendors((data.charts || {}).vendors);
                 renderTable(fullDataRecords);
 
             } catch (error) {
                 console.error("Erro ao buscar dados filtrados:", error);
+                // Mostrar o erro de forma visivel na tela
+                const container = document.querySelector('main');
+                if (container) {
+                    const errDiv = document.createElement('div');
+                    errDiv.style.padding = '1rem';
+                    errDiv.style.margin = '1rem 0';
+                    errDiv.style.background = '#FFEBEE';
+                    errDiv.style.color = '#C62828';
+                    errDiv.style.borderRadius = '8px';
+                    errDiv.style.fontWeight = 'bold';
+                    errDiv.innerHTML = `⚠️ Erro ao Filtrar Dados: ${error.message}.`;
+                    container.insertBefore(errDiv, container.firstChild);
+                }
             }
         }
 
@@ -1287,7 +1357,7 @@ def get_dashboard():
             }
 
             // Cabeçalho
-            let csvContent = "Nº Processo,Órgão,Objeto,Modalidade,Valor Estimado,Valor Homologado,Situação,Fornecedor Vencedor,Data\r\n";
+            let csvContent = "Nº Processo,Órgão,Objeto,Modalidade,Valor Estimado,Valor Homologado,Situação,Fornecedor Vencedor,Data\\r\\n";
 
             // Linhas
             fullDataRecords.forEach(row => {
@@ -1302,11 +1372,11 @@ def get_dashboard():
                     `"${row.fornecedor}"`,
                     `"${row.data}"`
                 ].join(",");
-                csvContent += line + "\r\n";
+                csvContent += line + "\\r\\n";
             });
 
             // Criar um Blob com BOM UTF-8 para o Excel reconhecer acentos corretamente
-            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob(["\\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
@@ -1323,4 +1393,8 @@ def get_dashboard():
 </body>
 </html>
 """
-    return HTMLResponse(content=html_content, status_code=200)
+    return HTMLResponse(
+        content=html_content,
+        status_code=200,
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"}
+    )
